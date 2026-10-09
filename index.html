@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>College Club Management System</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#1e293b}
+header{background:#123b70;color:white;padding:25px;text-align:center}
+header h1{margin:0 0 8px}
+header p{margin:0;color:#dbeafe}
+nav{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;background:white;padding:14px}
+button{border:0;border-radius:6px;padding:10px 15px;cursor:pointer;font-weight:bold}
+nav button{background:#e2e8f0;color:#123b70}
+nav button.active,.primary{background:#2563eb;color:white}
+main{max-width:1050px;margin:25px auto;padding:0 15px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+.stat,.panel{background:white;padding:20px;border-radius:12px;box-shadow:0 3px 12px #0000000b;margin-bottom:18px}
+.stat{text-align:center}
+.stat h2{color:#2563eb;margin:5px}
+h2,h3{margin-top:0}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:6px;font-size:15px}
+textarea{resize:vertical}
+.full{grid-column:1/-1}
+.search{margin:12px 0}
+.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.item{border:1px solid #e2e8f0;padding:16px;border-radius:9px;background:#fff;overflow-wrap:anywhere}
+.item h3{color:#123b70;margin-bottom:8px}
+.item p{line-height:1.5}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.edit{background:#fef3c7;color:#92400e}
+.delete{background:#fee2e2;color:#b91c1c}
+.hidden{display:none}
+.muted{color:#64748b}
+footer{text-align:center;padding:22px;color:#64748b}
+@media(max-width:600px){
+ .stats{grid-template-columns:1fr}
+ .form-grid{grid-template-columns:1fr}
+ .full{grid-column:auto}
+}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>College Club Management System</h1>
+  <p>Manage Clubs • Students • Events & Activities</p>
+  <p><strong>MERN Stack Project Prototype</strong></p>
+</header>
+
+<nav>
+  <button class="active" onclick="showPage('clubs',this)">Clubs</button>
+  <button onclick="showPage('students',this)">Students</button>
+  <button onclick="showPage('events',this)">Events</button>
+</nav>
+
+<main>
+  <div class="stats">
+    <div class="stat"><p>Total Clubs</p><h2 id="clubCount">0</h2></div>
+    <div class="stat"><p>Total Students</p><h2 id="studentCount">0</h2></div>
+    <div class="stat"><p>Total Events</p><h2 id="eventCount">0</h2></div>
+  </div>
+
+  <section id="clubs" class="page">
+    <div class="panel">
+      <h2 id="clubHeading">Add a Club</h2>
+      <form id="clubForm" class="form-grid">
+        <input id="clubName" placeholder="Club name" required>
+        <input id="clubCategory" placeholder="Category (Technical, Cultural...)" required>
+        <input id="clubCoordinator" placeholder="Club coordinator" required>
+        <input id="clubDescription" placeholder="Club description" required>
+        <button class="primary full" type="submit">Save Club</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Club Directory</h2>
+      <input class="search" id="clubSearch" placeholder="Search clubs..." oninput="renderClubs()">
+      <div class="list" id="clubList"></div>
+    </div>
+  </section>
+
+  <section id="students" class="page hidden">
+    <div class="panel">
+      <h2 id="studentHeading">Add a Student</h2>
+      <form id="studentForm" class="form-grid">
+        <input id="studentName" placeholder="Student name" required>
+        <input id="studentRoll" placeholder="Roll number" required>
+        <input id="studentEmail" type="email" placeholder="Email address" required>
+        <select id="studentClub" required></select>
+        <button class="primary full" type="submit">Save Student</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Student Members</h2>
+      <input class="search" id="studentSearch" placeholder="Search students..." oninput="renderStudents()">
+      <div class="list" id="studentList"></div>
+    </div>
+  </section>
+
+  <section id="events" class="page hidden">
+    <div class="panel">
+      <h2 id="eventHeading">Add an Event</h2>
+      <form id="eventForm" class="form-grid">
+        <input id="eventName" placeholder="Event name" required>
+        <select id="eventClub" required></select>
+        <input id="eventDate" type="date" required>
+        <input id="eventVenue" placeholder="Event venue" required>
+        <textarea id="eventDescription" class="full" placeholder="Event details" required></textarea>
+        <button class="primary full" type="submit">Save Event</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Events & Activities</h2>
+      <input class="search" id="eventSearch" placeholder="Search events..." oninput="renderEvents()">
+      <div class="list" id="eventList"></div>
+    </div>
+  </section>
+</main>
+
+<footer>College Club Management System | Project Demonstration</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let clubs = JSON.parse(localStorage.getItem("ccm_clubs") || "[]");
+let students = JSON.parse(localStorage.getItem("ccm_students") || "[]");
+let events = JSON.parse(localStorage.getItem("ccm_events") || "[]");
+
+let editingClub = null;
+let editingStudent = null;
+let editingEvent = null;
+
+function saveData(){
+  localStorage.setItem("ccm_clubs",JSON.stringify(clubs));
+  localStorage.setItem("ccm_students",JSON.stringify(students));
+  localStorage.setItem("ccm_events",JSON.stringify(events));
+  updateStats();
+  updateClubOptions();
+}
+
+function id(){
+  return Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+}
+
+function safe(value){
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[ch]);
+}
+
+function showPage(page,button){
+  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
+  $(page).classList.remove("hidden");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  button.classList.add("active");
+}
+
+function updateStats(){
+  $("clubCount").textContent=clubs.length;
+  $("studentCount").textContent=students.length;
+  $("eventCount").textContent=events.length;
+}
+
+function updateClubOptions(){
+  ["studentClub","eventClub"].forEach(selectId=>{
+    const select=$(selectId);
+    const old=select.value;
+    select.innerHTML='<option value="">Select a club</option>'+
+      clubs.map(c=>`<option value="${safe(c.id)}">${safe(c.name)}</option>`).join("");
+    if(clubs.some(c=>c.id===old))select.value=old;
+  });
+}
+
+function clubName(id){
+  return clubs.find(c=>c.id===id)?.name || "Club removed";
+}
+
+function renderClubs(){
+  const q=$("clubSearch").value.toLowerCase();
+  const result=clubs.filter(c=>
+    [c.name,c.category,c.coordinator,c.description].join(" ").toLowerCase().includes(q)
+  );
+  $("clubList").innerHTML=result.length?result.map(c=>`
+    <div class="item">
+      <h3>${safe(c.name)}</h3>
+      <p><b>Category:</b> ${safe(c.category)}</p>
+      <p><b>Coordinator:</b> ${safe(c.coordinator)}</p>
+      <p>${safe(c.description)}</p>
+      <div class="actions">
+        <button class="edit" onclick="editClub('${c.id}')">Edit</button>
+        <button class="delete" onclick="deleteClub('${c.id}')">Delete</button>
+      </div>
+    </div>`).join(""):'<p class="muted">No clubs found. Add your first club above.</p>';
+}
+
+$("clubForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const data={
+    name:$("clubName").value.trim(),
+    category:$("clubCategory").value.trim(),
+    coordinator:$("clubCoordinator").value.trim(),
+    description:$("clubDescription").value.trim()
+  };
+  if(editingClub){
+    clubs=clubs.map(c=>c.id===editingClub?{...c,...data}:c);
+  }else{
+    clubs.push({id:id(),...data});
+  }
+  editingClub=null;
+  $("clubForm").reset();
+  $("clubHeading").textContent="Add a Club";
+  saveData();renderClubs();renderStudents();renderEvents();
+});
+
+function editClub(key){
+  const c=clubs.find(c=>c.id===key);if(!c)return;
+  editingClub=key;
+  $("clubName").value=c.name;
+  $("clubCategory").value=c.category;
+  $("clubCoordinator").value=c.coordinator;
+  $("clubDescription").value=c.description;
+  $("clubHeading").textContent="Edit Club";
+  $("clubs").scrollIntoView({behavior:"smooth"});
+}
+
+function deleteClub(key){
+  if(!confirm("Delete this club and its related students and events?"))return;
+  clubs=clubs.filter(c=>c.id!==key);
+  students=students.filter(s=>s.clubId!==key);
+  events=events.filter(e=>e.clubId!==key);
+  if(editingClub===key){editingClub=null;$("clubForm").reset();}
+  saveData();renderClubs();renderStudents();renderEvents();
+}
+
+function renderStudents(){
+  const q=$("studentSearch").value.toLowerCase();
+  const result=students.filter(s=>
+    [s.name,s.roll,s.email,clubName(s.clubId)].join(" ").toLowerCase().includes(q)
+  );
+  $("studentList").innerHTML=result.length?result.map(s=>`
+    <div class="item">
+      <h3>${safe(s.name)}</h3>
+      <p><b>Roll No:</b> ${safe(s.roll)}</p>
+      <p><b>Email:</b> ${safe(s.email)}</p>
+      <p><b>Club:</b> ${safe(clubName(s.clubId))}</p>
+      <div class="actions">
+        <button class="edit" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="delete" onclick="deleteStudent('${s.id}')">Delete</button>
+      </div>
+    </div>`).join(""):'<p class="muted">No students found. Add a club before adding students.</p>';
+}
+
+$("studentForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(!clubs.length){alert("Please add a club first.");return;}
+  const data={
+    name:$("studentName").value.trim(),
+    roll:$("studentRoll").value.trim(),
+    email:$("studentEmail").value.trim(),
+    clubId:$("studentClub").value
+  };
+  if(!data.clubId){alert("Please select a club.");return;}
+  const duplicate=students.some(s=>s.roll.toLowerCase()===data.roll.toLowerCase()&&s.id!==editingStudent);
+  if(duplicate){alert("This roll number already exists.");return;}
+  if(editingStudent){
+    students=students.map(s=>s.id===editingStudent?{...s,...data}:s);
+  }else{
+    students.push({id:id(),...data});
+  }
+  editingStudent=null;
+  $("studentForm").reset();
+  $("studentHeading").textContent="Add a Student";
+  saveData();renderStudents();
+});
+
+function editStudent(key){
+  const s=students.find(s=>s.id===key);if(!s)return;
+  editingStudent=key;
+  $("studentName").value=s.name;
+  $("studentRoll").value=s.roll;
+  $("studentEmail").value=s.email;
+  $("studentClub").value=s.clubId;
+  $("studentHeading").textContent="Edit Student";
+  $("students").scrollIntoView({behavior:"smooth"});
+}
+
+function deleteStudent(key){
+  if(!confirm("Delete this student?"))return;
+  students=students.filter(s=>s.id!==key);
+  saveData();renderStudents();
+}
+
+function renderEvents(){
+  const q=$("eventSearch").value.toLowerCase();
+  const result=events.filter(e=>
+    [e.name,e.venue,e.description,clubName(e.clubId),e.date].join(" ").toLowerCase().includes(q)
+  );
+  $("eventList").innerHTML=result.length?result.map(e=>`
+    <div class="item">
+      <h3>${safe(e.name)}</h3>
+      <p><b>Club:</b> ${safe(clubName(e.clubId))}</p>
+      <p><b>Date:</b> ${safe(e.date)}</p>
+      <p><b>Venue:</b> ${safe(e.venue)}</p>
+      <p>${safe(e.description)}</p>
+      <div class="actions">
+        <button class="edit" onclick="editEvent('${e.id}')">Edit</button>
+        <button class="delete" onclick="deleteEvent('${e.id}')">Delete</button>
+      </div>
+    </div>`).join(""):'<p class="muted">No events found. Add an event above.</p>';
+}
+
+$("eventForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(!clubs.length){alert("Please add a club first.");return;}
+  const data={
+    name:$("eventName").value.trim(),
+    clubId:$("eventClub").value,
+    date:$("eventDate").value,
+    venue:$("eventVenue").value.trim(),
+    description:$("eventDescription").value.trim()
+  };
+  if(!data.clubId){alert("Please select a club.");return;}
+  if(editingEvent){
+    events=events.map(ev=>ev.id===editingEvent?{...ev,...data}:ev);
+  }else{
+    events.push({id:id(),...data});
+  }
+  editingEvent=null;
+  $("eventForm").reset();
+  $("eventHeading").textContent="Add an Event";
+  saveData();renderEvents();
+});
+
+function editEvent(key){
+  const ev=events.find(ev=>ev.id===key);if(!ev)return;
+  editingEvent=key;
+  $("eventName").value=ev.name;
+  $("eventClub").value=ev.clubId;
+  $("eventDate").value=ev.date;
+  $("eventVenue").value=ev.venue;
+  $("eventDescription").value=ev.description;
+  $("eventHeading").textContent="Edit Event";
+  $("events").scrollIntoView({behavior:"smooth"});
+}
+
+function deleteEvent(key){
+  if(!confirm("Delete this event?"))return;
+  events=events.filter(ev=>ev.id!==key);
+  saveData();renderEvents();
+}
+
+saveData();
+renderClubs();
+renderStudents();
+renderEvents();
+</script>
+</body>
+</html>
